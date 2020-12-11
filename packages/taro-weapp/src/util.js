@@ -1,4 +1,6 @@
 import isPlainObject from 'lodash/isPlainObject'
+import { Current } from '@tarojs/taro'
+import { SimpleMap } from '@tarojs/utils'
 
 export function isEmptyObject (obj) {
   if (!obj || !isPlainObject(obj)) {
@@ -10,6 +12,14 @@ export function isEmptyObject (obj) {
     }
   }
   return true
+}
+
+export function isUndefined (o) {
+  return o === undefined
+}
+
+export function isNullOrUndef (o) {
+  return isUndefined(o) || o === null
 }
 
 /**
@@ -66,21 +76,18 @@ export function isArray (arg) {
   return Array.isArray(arg)
 }
 
-export function shakeFnFromObject (obj) {
+export function cloneDeep (obj) {
   let newObj
   if (isArray(obj)) {
     newObj = []
     const len = obj.length
     for (let i = 0; i < len; i++) {
-      newObj.push(shakeFnFromObject(obj[i]))
+      newObj.push(cloneDeep(obj[i]))
     }
   } else if (isPlainObject(obj)) {
     newObj = {}
     for (const key in obj) {
-      if (isFunction(obj[key])) {
-        continue
-      }
-      const ret = shakeFnFromObject(obj[key])
+      const ret = cloneDeep(obj[key])
       newObj[key] = ret
     }
   } else {
@@ -122,13 +129,16 @@ function diffArrToPath (to, from, res = {}, keyPrev = '') {
             res[targetKey] = toItem
           } else {
             // 对象
-            let shouldDiffObject = true
+            let shouldDiffObject = isPlainObject(toItem)
+
+            shouldDiffObject &&
             Object.keys(fromItem).some(key => {
-              if (typeof toItem[key] === 'undefined') {
+              if (typeof toItem[key] === 'undefined' && typeof fromItem[key] !== 'undefined') {
                 shouldDiffObject = false
                 return true
               }
             })
+
             if (shouldDiffObject) {
               diffObjToPath(toItem, fromItem, res, `${targetKey}.`)
             } else {
@@ -152,7 +162,9 @@ export function diffObjToPath (to, from, res = {}, keyPrev = '') {
     const toItem = to[key]
     const fromItem = from[key]
     const targetKey = `${keyPrev}${key}`
-    if (toItem === fromItem) {
+    if (/^\$compid__/.test(key)) {
+      res[targetKey] = toItem
+    } else if (toItem === fromItem) {
       continue
     } else if (!hasProp.call(from, key)) {
       res[targetKey] = toItem
@@ -179,13 +191,16 @@ export function diffObjToPath (to, from, res = {}, keyPrev = '') {
             res[targetKey] = toItem
           } else {
             // 对象
-            let shouldDiffObject = true
+            let shouldDiffObject = isPlainObject(toItem)
+
+            shouldDiffObject &&
             Object.keys(fromItem).some(key => {
-              if (typeof toItem[key] === 'undefined') {
+              if (typeof toItem[key] === 'undefined' && typeof fromItem[key] !== 'undefined') {
                 shouldDiffObject = false
                 return true
               }
             })
+
             if (shouldDiffObject) {
               diffObjToPath(toItem, fromItem, res, `${targetKey}.`)
             } else {
@@ -254,25 +269,32 @@ export function getElementById (component, id, type) {
 }
 
 let id = 0
-export function genCompid () {
+function genId () {
   return String(id++)
 }
 
-export function genLoopCompid (scope, variableName, loops) {
-  if (scope && scope.data) {
-    let data = scope.data
-    for (let len = loops.length, i = 0; i < len; i++) {
-      const { indexId, name } = loops[i]
-      if (data[name] && data[name][indexId]) {
-        data = data[name][indexId]
-      } else {
-        return genCompid()
-      }
-    }
-    if (data[variableName]) {
-      return data[variableName]
-    } else {
-      return genCompid()
-    }
+let compIdsMapper
+try {
+  compIdsMapper = new Map()
+} catch (error) {
+  compIdsMapper = new SimpleMap()
+}
+export function genCompid (key, isNeedCreate) {
+  if (!Current || !Current.current || !Current.current.$scope) return []
+
+  const prevId = compIdsMapper.get(key)
+  if (isNeedCreate) {
+    const id = genId()
+    compIdsMapper.set(key, id)
+    return [prevId, id]
+  } else {
+    const id = prevId || genId()
+    !prevId && compIdsMapper.set(key, id)
+    return [null, id]
   }
+}
+
+let prefix = 0
+export function genCompPrefix () {
+  return String(prefix++)
 }

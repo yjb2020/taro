@@ -1,67 +1,59 @@
-import { Reaction, _allowStateChanges } from 'mobx'
+import { Reaction } from 'mobx'
+import { errorsReporter, isUsingStaticRendering } from '@tarojs/mobx-common'
 
-function isStateless (component) {
-  return !(component.prototype && component.prototype._createData)
-}
-
-export function observer (Component) {
-  if (typeof Component !== 'function' || isStateless(Component)) {
-    throw new Error("Please pass a valid component to 'observer'")
+export function observer (component) {
+  if (isUsingStaticRendering()) {
+    return component
   }
 
-  if (Component.isMobxInjector === true) {
+  if (component.isMobxInjector === true) {
     console.warn(
       "Mobx observer: You are trying to use 'observer' on a component that already has 'inject'. Please apply 'observer' before applying 'inject'"
     )
   }
 
-  class ObserverComponent extends Component {
-    componentWillMount () {
-      const initialName =
-            this.displayName ||
-            this.name ||
-            (this.constructor && (this.constructor.displayName || this.constructor.name)) ||
-            '<component>'
+  const target = component.prototype
+  const originConstructor = target._constructor
+  target._constructor = function () {
+    if (this.$scope) {
+      const initialName = this.displayName || this.name
       this._reaction = new Reaction(`${initialName}_${Date.now()}`, () => {
-        if (typeof this.componentWillReact === 'function') {
-          this.componentWillReact()
-        }
+        this.componentWillReact && this.componentWillReact()
         this.forceUpdate()
       })
-      if (typeof super.componentWillMount === 'function') {
-        super.componentWillMount()
-      }
     }
-
-    componentWillUnmount () {
-      this._reaction.dispose()
-      if (typeof super.componentWillUnmount === 'function') {
-        super.componentWillUnmount()
-      }
-    }
+    originConstructor && originConstructor.call(this, this.props)
   }
 
-  const target = ObserverComponent.prototype
-  const originCreateData = target._createData
-  target._createData = function () {
+  const originComponentWillUnmount = target.componentWillUnmount
+  target.componentWillUnmount = function () {
+    if (this._reaction) {
+      this._reaction.dispose()
+    }
+    originComponentWillUnmount && originComponentWillUnmount.call(this)
+  }
+
+  const originRender = target._createData
+  target._createData = function (...args) {
     let result
     let exception
-    if (this._reaction && this._reaction instanceof Reaction) {
+    if (this._reaction instanceof Reaction) {
       this._reaction.track(() => {
         try {
-          result = _allowStateChanges(false, originCreateData.bind(this))
+          result = originRender.call(this, null, null, args[2])
         } catch (e) {
           exception = e
         }
       })
     } else {
-      result = originCreateData.call(this)
+      result = originRender.call(this, null, null, args[2])
     }
     if (exception) {
+      errorsReporter.emit(exception)
       throw exception
     }
     return result
   }
 
-  return ObserverComponent
+  return component
 }

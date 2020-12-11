@@ -5,29 +5,45 @@ const program = require('commander')
 const chalk = require('chalk')
 const _ = require('lodash')
 
-const build = require('../src/build')
-const { PROJECT_CONFIG, BUILD_TYPES } = require('../src/util')
-const projectConfPath = path.join(process.cwd(), PROJECT_CONFIG)
+const build = require('../dist/build').default
+const { PROJECT_CONFIG, BUILD_TYPES } = require('../dist/util/constants')
+const appPath = process.cwd()
+const projectConfPath = path.join(appPath, PROJECT_CONFIG)
 
 program
-  .option('--type [typeName]', 'Build type, weapp/h5/rn/swan/alipay/tt')
+  .option('--type [typeName]', 'Build type, weapp/swan/alipay/tt/h5/quickapp/rn/qq/jd')
   .option('--watch', 'Watch mode')
+  .option('--page [pagePath]', 'Build one page')
+  .option('--component [pagePath]', 'Build one component')
   .option('--env [env]', 'Env type')
   .option('--ui', 'Build Taro UI library')
+  .option('--ui-index [uiIndexPath]', 'Index file for build Taro UI library')
   .option('--plugin [typeName]', 'Build Taro plugin project, weapp')
+  .option('--port [port]', 'Specified port')
+  .option('--release', 'Release quickapp')
   .parse(process.argv)
 
-const args = program.args
-const { type, watch, ui } = program
-let { env, plugin } =  program
+const { type, watch, ui, port, release, page, component, uiIndex } = program
+let { env, plugin } = program
 
 env = process.env.NODE_ENV || env
 
+if (env) {
+  process.env.NODE_ENV = env
+} else {
+  if (watch) {
+    process.env.NODE_ENV = 'development'
+  } else {
+    process.env.NODE_ENV = 'production'
+  }
+}
+
 if (ui) {
   console.log(chalk.green(`开始编译 UI 库`))
-  build(args, {
+  build(appPath, {
     type: 'ui',
-    watch
+    watch,
+    uiIndex
   })
   return
 }
@@ -36,7 +52,7 @@ if (plugin) {
   if (typeof plugin === 'boolean') {
     plugin = BUILD_TYPES.WEAPP
   }
-  build(args, {
+  build(appPath, {
     type: BUILD_TYPES.PLUGIN,
     platform: plugin,
     watch
@@ -49,20 +65,21 @@ if (!fs.existsSync(projectConfPath)) {
   process.exit(1)
 }
 
-if (env) {
-  process.env.NODE_ENV = env
-} else {
-  if (watch) {
-    process.env.NODE_ENV = 'development'
-  } else {
-    process.env.NODE_ENV = 'production'
-  }
-}
+process.env.TARO_ENV = type
 
 const projectConf = require(projectConfPath)(_.merge)
-console.log(chalk.green(`开始编译项目 ${chalk.bold(projectConf.projectName)}`))
+if (typeof page === 'string') {
+  console.log(chalk.green(`开始编译页面 ${chalk.bold(page)}`))
+} else if (typeof component === 'string') {
+  console.log(chalk.green(`开始编译组件 ${chalk.bold(component)}`))
+} else {
+  console.log(chalk.green(`开始编译项目 ${chalk.bold(projectConf.projectName)}`))
+}
 
-build(args, {
+build(appPath, {
   type,
-  watch
+  watch,
+  port: typeof port === 'string' ? port: undefined,
+  release: !!release,
+  page, component
 })

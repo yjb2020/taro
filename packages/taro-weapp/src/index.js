@@ -4,13 +4,41 @@ import {
   Events,
   eventCenter,
   ENV_TYPE,
+  createRef,
   render,
   internal_safe_get,
   internal_safe_set,
   internal_inline_style,
   internal_get_original,
-  interceptors
+  interceptors,
+  RefsArray,
+  handleLoopRef,
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useState,
+  useDidShow,
+  useDidHide,
+  usePullDownRefresh,
+  useReachBottom,
+  usePageScroll,
+  useResize,
+  useShareAppMessage,
+  useTabItemTap,
+  useShareTimeline,
+  useAddToFavorites,
+  useRouter,
+  useScope,
+  useRef,
+  useCallback,
+  useMemo,
+  useImperativeHandle,
+  useContext,
+  createContext,
+  memo,
+  setIsUsingDiff
 } from '@tarojs/taro'
+import { shallowEqual } from '@tarojs/utils'
 
 import Component from './component'
 import PureComponent from './pure-component'
@@ -18,7 +46,7 @@ import createApp from './create-app'
 import createComponent from './create-component'
 import initNativeApi from './native-api'
 import propsManager from './propsManager'
-import { getElementById, genCompid, genLoopCompid } from './util'
+import { getElementById, genCompid } from './util'
 
 export const Taro = {
   Component,
@@ -28,6 +56,7 @@ export const Taro = {
   Events,
   eventCenter,
   getEnv,
+  createRef,
   render,
   ENV_TYPE,
   internal_safe_get,
@@ -35,11 +64,36 @@ export const Taro = {
   internal_inline_style,
   createComponent,
   internal_get_original,
-  getElementById,
+  handleLoopRef: handleLoopRef(getElementById),
   propsManager,
   interceptors,
+  RefsArray,
   genCompid,
-  genLoopCompid
+  useEffect,
+  useLayoutEffect,
+  useReducer,
+  useState,
+  useDidShow,
+  useDidHide,
+  usePullDownRefresh,
+  useReachBottom,
+  usePageScroll,
+  useResize,
+  useShareAppMessage,
+  useTabItemTap,
+  useRouter,
+  useShareTimeline,
+  useAddToFavorites,
+  useScope,
+  useRef,
+  useCallback,
+  useMemo,
+  useImperativeHandle,
+  useContext,
+  createContext,
+  memo,
+  shallowEqual,
+  setIsUsingDiff
 }
 
 export default Taro

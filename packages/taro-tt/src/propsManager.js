@@ -1,12 +1,17 @@
 import { updateComponent } from './lifecycle'
 import { filterProps } from './create-component'
+import nextTick from './next-tick'
 
 class Manager {
   map = {}
   observers = {}
 
-  set (props = {}, compid) {
+  set (props = {}, compid, previd) {
     if (!compid) return
+
+    if (previd) {
+      this.delete(previd)
+    }
 
     const { observers } = this
     if (!this.map[compid]) {
@@ -24,9 +29,11 @@ class Manager {
 
           const nextProps = filterProps(ComponentClass.defaultProps, props, component.props)
           component.props = nextProps
-          component._unsafeCallUpdate = true
-          updateComponent(component)
-          component._unsafeCallUpdate = false
+          nextTick(() => {
+            component._unsafeCallUpdate = true
+            updateComponent(component)
+            component._unsafeCallUpdate = false
+          })
         }
       })
     }
